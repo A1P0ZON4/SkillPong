@@ -1,0 +1,1933 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스킬 퐁 (Skill Pong)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: linear-gradient(135deg, #1a0033 0%, #0a001a 50%, #000000 100%);
+            color: #eee;
+            font-family: 'Noto Sans KR', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+        #app-container {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        canvas {
+            background-color: #000;
+            border: 4px solid #00ffff;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.5), 0 0 60px rgba(255, 0, 255, 0.3);
+            border-radius: 8px;
+            max-width: 100%;
+            height: auto;
+        }
+        #game-container {
+            position: relative;
+            display: inline-block;
+            margin: 0 auto;
+        }
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.85);
+            color: white;
+            backdrop-filter: blur(5px);
+        }
+        h1 {
+            font-size: 48px;
+            text-shadow: 3px 3px 0px #ff00ff, -3px -3px 0px #00ffff;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        h1, h2 { font-family: 'Orbitron', 'Noto Sans KR', sans-serif; }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        @keyframes gachaReveal {
+            0% {
+                opacity: 0;
+                transform: scale(0.3) rotateY(180deg);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.1) rotateY(90deg);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) rotateY(0deg);
+            }
+        }
+        h2 {
+            font-size: 24px;
+            margin: 20px 0;
+            color: #00ffff;
+        }
+        p {
+            font-size: 14px;
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+        .character-selection {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 20px;
+            max-width: 100%;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding: 10px;
+            scrollbar-width: thin;
+            scrollbar-color: #00ffff #1a1a2e;
+        }
+        .character-selection::-webkit-scrollbar {
+            width: 8px;
+        }
+        .character-selection::-webkit-scrollbar-track {
+            background: #1a1a2e;
+            border-radius: 4px;
+        }
+        .character-selection::-webkit-scrollbar-thumb {
+            background: #00ffff;
+            border-radius: 4px;
+        }
+        .char-card {
+            border: 3px solid #fff;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease-in-out;
+            background: rgba(20, 20, 40, 0.6);
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            min-height: 150px;
+        }
+        .char-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+        .char-card:hover::before {
+            left: 100%;
+        }
+        .char-card:hover {
+            background: rgba(40, 40, 80, 0.8);
+            transform: scale(1.08) translateY(-5px);
+            border-color: #00ffff;
+            box-shadow: 0 10px 30px rgba(0, 255, 255, 0.5);
+        }
+        .char-card.selected {
+            border-color: #ffff00;
+            box-shadow: 0 0 20px rgba(255, 255, 0, 0.6);
+            transform: scale(1.04);
+        }
+        .char-card h3 {
+            margin: 0 0 10px 0;
+            color: #ff00ff;
+            font-size: 14px;
+        }
+        .char-card p {
+            font-size: 11px;
+            color: #ccc;
+            line-height: 1.4;
+        }
+        .char-card strong {
+            color: #00ffff;
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        #restart-button {
+            padding: 15px 40px;
+            font-size: 20px;
+            background: linear-gradient(135deg, #ff00ff, #ff0080);
+            color: #fff;
+            border: 3px solid #fff;
+            cursor: pointer;
+            margin-top: 30px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            box-shadow: 0 5px 20px rgba(255, 0, 255, 0.5);
+        }
+        #restart-button:hover {
+            background: linear-gradient(135deg, #c000c0, #c00060);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(255, 0, 255, 0.7);
+        }
+        #restart-button:active {
+            transform: translateY(-1px);
+        }
+        .score-popup {
+            position: absolute;
+            font-size: 32px;
+            font-weight: bold;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+            animation: scoreFloat 1s ease-out forwards;
+            pointer-events: none;
+        }
+        @keyframes scoreFloat {
+            0% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-100px) scale(1.5);
+            }
+        }
+        .game-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            border: 2px solid #333;
+        }
+        .screen {
+            display: none;
+            width: 100%;
+        }
+        .screen.active {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        #main-menu-screen {
+            padding: 20px;
+        }
+        #gacha-screen {
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .button {
+            padding: 15px 40px;
+            font-size: 18px;
+            font-weight: 600;
+            background: linear-gradient(135deg, #00ffff, #00aaff);
+            color: #000;
+            border: 3px solid #00ffff;
+            cursor: pointer;
+            margin: 10px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            box-shadow: 0 5px 20px rgba(0, 255, 255, 0.4);
+            font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
+        }
+        .button:hover {
+            background: linear-gradient(135deg, #00aaff, #0088dd);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(0, 255, 255, 0.6);
+        }
+        .button:active {
+            transform: translateY(-1px);
+        }
+        .button.secondary {
+            background: linear-gradient(135deg, #ff00ff, #ff0080);
+            border-color: #ff00ff;
+            box-shadow: 0 5px 20px rgba(255, 0, 255, 0.4);
+        }
+        .button.secondary:hover {
+            background: linear-gradient(135deg, #dd00dd, #dd0060);
+            box-shadow: 0 8px 30px rgba(255, 0, 255, 0.6);
+        }
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        #currency-display {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #ffd700;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #ffd700;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+            z-index: 1000;
+        }
+        #gacha-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        #gacha-modal.active {
+            display: flex;
+        }
+        .gacha-card {
+            background: linear-gradient(135deg, #1a1a2e, #0f0f1e);
+            border: 5px solid #fff;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            animation: gachaReveal 1.5s ease-out;
+            box-shadow: 0 0 100px rgba(255, 255, 255, 0.5);
+            max-width: 500px;
+        }
+        @keyframes gachaReveal {
+            0% {
+                opacity: 0;
+                transform: scale(0.5) rotateY(180deg);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.1) rotateY(90deg);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) rotateY(0deg);
+            }
+        }
+        .gacha-card h2 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px currentColor;
+        }
+        .gacha-card .skin-name {
+            font-size: 28px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .gacha-card .rarity {
+            font-size: 20px;
+            margin: 10px 0;
+            font-weight: 600;
+        }
+        .rarity-common { color: #9e9e9e; }
+        .rarity-rare { color: #4dabf7; }
+        .rarity-epic { color: #9775fa; }
+        .rarity-legendary { color: #ffd43b; }
+        .gacha-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .skin-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        .skin-item {
+            background: rgba(20, 20, 40, 0.8);
+            border: 3px solid #444;
+            border-radius: 10px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .skin-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0, 255, 255, 0.3);
+        }
+        .skin-item.equipped {
+            border-color: #00ffff;
+            background: rgba(0, 255, 255, 0.1);
+        }
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 30px;
+        }
+    </style>
+    <!-- 구글 폰트 변경: Noto Sans KR + Orbitron -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <!-- UI 오버레이 -->
+    <div id="ui-overlay">
+        <!-- 캐릭터 선택 화면 -->
+        <div id="character-select-screen">
+            <h1>스킬 퐁</h1>
+            <p>마우스로 패들을 움직이고, 스페이스바로 스킬을 사용하세요!</p>
+            <h2>캐릭터를 선택하세요</h2>
+            <div class="character-selection">
+                <div class="char-card" data-char="speedster">
+                    <h3>⚡ 스피드스터</h3>
+                    <p><strong>스킬: 부스트</strong><br>5초간 패들의 이동 속도가 2.5배 증가합니다.</p>
+                </div>
+                <div class="char-card" data-char="guardian">
+                    <h3>🛡️ 가디언</h3>
+                    <p><strong>스킬: 방벽</strong><br>5초간 패들의 길이가 2배로 늘어나 방어에 유리해집니다.</p>
+                </div>
+                <div class="char-card" data-char="phantom">
+                    <h3>👻 팬텀</h3>
+                    <p><strong>스킬: 유령 공</strong><br>3초간 공이 반투명해져 상대방을 교란시킵니다.</p>
+                </div>
+                <div class="char-card" data-char="sniper">
+                    <h3>🎯 스나이퍼</h3>
+                    <p><strong>스킬: 정밀 타격</strong><br>4초간 공의 속도가 2배 빨라집니다.</p>
+                </div>
+                <div class="char-card" data-char="berserker">
+                    <h3>⚔️ 버서커</h3>
+                    <p><strong>스킬: 광폭화</strong><br>6초간 공의 크기가 작아지지만 속도가 증가합니다.</p>
+                </div>
+                <div class="char-card" data-char="timekeeper">
+                    <h3>⏰ 타임키퍼</h3>
+                    <p><strong>스킬: 시간 정지</strong><br>2초간 공의 속도가 70% 감소합니다.</p>
+                </div>
+                <div class="char-card" data-char="frost">
+                    <h3>❄️ 프로스트</h3>
+                    <p><strong>스킬: 빙결</strong><br>4초간 상대의 이동/반응 속도를 절반으로 둔화시킵니다.</p>
+                </div>
+                <div class="char-card" data-char="giant">
+                    <h3>🗿 자이언트</h3>
+                    <p><strong>스킬: 거대화</strong><br>5초간 패들의 너비가 증가합니다.</p>
+                </div>
+                <div class="char-card" data-char="mystic">
+                    <h3>🔮 미스틱</h3>
+                    <p><strong>스킬: 신비한 방어</strong><br>4초간 패들의 높이가 1.5배 증가합니다.</p>
+                </div>
+                <div class="char-card" data-char="blade">
+                    <h3>🗡️ 블레이드</h3>
+                    <p><strong>스킬: 예리한 반격</strong><br>3초간 공의 속도가 30% 증가합니다.</p>
+                </div>
+                <div class="char-card" data-char="thunder">
+                    <h3>⚡ 썬더</h3>
+                    <p><strong>스킬: 전격 혼란</strong><br>3.5초간 공이 지그재그로 움직이며 속도가 증가합니다.</p>
+                </div>
+                <div class="char-card" data-char="shadow">
+                    <h3>🌑 섀도우</h3>
+                    <p><strong>스킬: 은신</strong><br>4초간 자신의 패들이 투명해지고 이동 속도가 증가합니다.</p>
+                </div>
+                <div class="char-card" data-char="phoenix">
+                    <h3>🔥 피닉스</h3>
+                    <p><strong>스킬: 불사조의 날개</strong><br>2.5초간 공이 화염 궤적을 남기며 속도가 80% 증가합니다.</p>
+                </div>
+            </div>
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; margin-top: 30px;">
+                <button class="button secondary" onclick="showGachaScreen()" style="padding: 12px 30px; font-size: 16px;">✨ 가챠</button>
+                <button class="button secondary" onclick="showSkinScreen()" style="padding: 12px 30px; font-size: 16px;">👕 스킨 장착</button>
+            </div>
+        </div>
+        
+        <!-- 가챠 화면 -->
+        <div id="gacha-screen" style="display: none;">
+            <h1 style="margin-bottom: 30px;">✨ 스킨 가챠 ✨</h1>
+            <p style="font-size: 16px; margin: 20px 0; color: #ccc;">스킨을 획득하여 게임 배경과 효과를 커스터마이즈하세요!</p>
+            
+            <div style="background: rgba(0,0,0,0.6); border: 2px solid #444; border-radius: 12px; padding: 20px; margin: 30px auto; max-width: 500px;">
+                <div style="font-size: 18px; margin-bottom: 20px;">
+                    <strong style="color: #ffd700;">보유 코인:</strong> <span style="color: #ffd700; font-size: 24px; font-weight: bold;" id="gacha-coin-display">0</span> 💰
+                </div>
+                <button onclick="performGachaFromScreen()" style="
+                    width: 100%;
+                    padding: 20px;
+                    font-size: 20px;
+                    font-weight: 600;
+                    background: linear-gradient(135deg, #ff00ff, #ff0080);
+                    color: #fff;
+                    border: 3px solid #ff00ff;
+                    cursor: pointer;
+                    border-radius: 10px;
+                    transition: all 0.3s;
+                    box-shadow: 0 5px 20px rgba(255, 0, 255, 0.5);
+                    font-family: `"Orbitron`", `"Noto Sans KR`", sans-serif;
+                ">🎲 1회 뽑기 (100 코인)</button>
+            </div>
+            
+            <div style="margin-top: 40px;">
+                <h2 style="margin-bottom: 20px; color: #00ffff;">확률 정보</h2>
+                <div style="background: rgba(0,0,0,0.5); border: 2px solid #333; border-radius: 10px; padding: 20px; max-width: 400px; margin: 0 auto;">
+                    <div style="margin: 10px 0; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #9e9e9e;">⚪ 커먼 (Common)</span>
+                        <strong style="color: #9e9e9e;">65%</strong>
+                    </div>
+                    <div style="margin: 10px 0; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #4dabf7;">🔵 레어 (Rare)</span>
+                        <strong style="color: #4dabf7;">25%</strong>
+                    </div>
+                    <div style="margin: 10px 0; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #9775fa;">🟣 에픽 (Epic)</span>
+                        <strong style="color: #9775fa;">9%</strong>
+                    </div>
+                    <div style="margin: 10px 0; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #ffd43b;">🟡 레전더리 (Legendary)</span>
+                        <strong style="color: #ffd43b;">1%</strong>
+                    </div>
+                </div>
+            </div>
+            
+            <button onclick="hideGachaScreen()" style="
+                margin-top: 40px;
+                padding: 15px 40px;
+                font-size: 18px;
+                background: linear-gradient(135deg, #00ffff, #00aaff);
+                color: #000;
+                border: 3px solid #00ffff;
+                cursor: pointer;
+                border-radius: 8px;
+                font-weight: 600;
+                font-family: `"Orbitron`", `"Noto Sans KR`", sans-serif;
+            ">뒤로 가기</button>
+        </div>
+        
+        <!-- 스킨 장착 화면 -->
+        <div id="skin-screen" style="display: none;">
+            <h1 style="margin-bottom: 30px;">👕 스킨 장착</h1>
+            <p style="font-size: 16px; margin: 20px 0; color: #ccc;">보유한 스킨을 선택하여 장착하세요!</p>
+            
+            <div id="skin-list-container" style="
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                gap: 15px;
+                margin: 30px 0;
+                max-height: 60vh;
+                overflow-y: auto;
+                padding: 10px;
+            ">
+                <!-- 스킨 목록이 JavaScript로 채워집니다 -->
+            </div>
+            
+            <button onclick="hideSkinScreen()" style="
+                margin-top: 30px;
+                padding: 15px 40px;
+                font-size: 18px;
+                background: linear-gradient(135deg, #00ffff, #00aaff);
+                color: #000;
+                border: 3px solid #00ffff;
+                cursor: pointer;
+                border-radius: 8px;
+                font-weight: 600;
+                font-family: `"Orbitron`", `"Noto Sans KR`", sans-serif;
+            ">뒤로 가기</button>
+        </div>
+
+        <!-- 게임 오버 화면 -->
+        <div id="game-over-screen" style="display: none;">
+            <h1 id="winner-message">게임 오버</h1>
+            <div style="margin: 20px 0; font-size: 18px;">
+                <p id="final-score"></p>
+                <p id="rank-info"></p>
+            </div>
+            <button id="restart-button">다시 시작</button>
+        </div>
+
+        <!-- 스킨/가챠 패널 (게임 화면에만 표시) -->
+        <div id="skins-panel" style="display: none; position:fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.9); border:3px solid #00ffff; border-radius:12px; padding:15px; max-width:350px; z-index: 100;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom: 12px;">
+                <strong style="color:#00ffff; font-size: 16px;">스킨</strong>
+                <button id="gacha-button" style="padding:10px 16px; border:3px solid #ff00ff; background:#111; color:#fff; cursor:pointer; font-family: 'Orbitron', 'Noto Sans KR', sans-serif; border-radius: 6px; font-weight: 600;">가챠 (100💰)</button>
+            </div>
+            <div id="skins-inventory" style="margin-top:10px; text-align:left; max-height:150px; overflow:auto; font-size:13px;"></div>
+            <div id="skins-info" style="margin-top:8px; font-size:11px; color:#999;">스킨을 클릭하여 적용합니다.</div>
+        </div>
+        
+        <!-- 코인 디스플레이 -->
+        <div id="coin-display" style="position: fixed; top: 20px; right: 20px; background: rgba(0,0,0,0.9); border: 3px solid #ffd700; border-radius: 10px; padding: 12px 24px; font-size: 22px; font-weight: bold; color: #ffd700; z-index: 1000; font-family: 'Orbitron', sans-serif; box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4);">
+            💰 <span id="coin-amount">0</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // UI 요소
+    const uiOverlay = document.getElementById('ui-overlay');
+    const charSelectScreen = document.getElementById('character-select-screen');
+    const gameOverScreen = document.getElementById('game-over-screen');
+    const winnerMessage = document.getElementById('winner-message');
+    const restartButton = document.getElementById('restart-button');
+    const charCards = document.querySelectorAll('.char-card');
+    const skinsInventoryEl = document.getElementById('skins-inventory');
+    const gachaButton = document.getElementById('gacha-button');
+
+    // 게임 상태
+    let gameState = 'menu'; // menu, playing, gameOver, countdown
+    let selectedChar = null;
+    let aiChar = null;
+    let countdownValue = 3;
+    const POINTS_TO_WIN = 10; // 라운드당 이기는데 필요한 점수 (길게 플레이)
+
+    // 스킨 시스템 상태
+    const skins = {
+        // rarity: common, rare, epic, legendary
+        pool: [
+            // Common (커먼)
+            { id: 'neon-blue', name: '네온 블루', rarity: 'common', theme: { border:'#00ffff', glow:1, bg:'linear-gradient(135deg, #101020, #000010)' }},
+            { id: 'neon-pink', name: '네온 핑크', rarity: 'common', theme: { border:'#ff00ff', glow:1, bg:'linear-gradient(135deg, #201020, #000010)' }},
+            { id: 'forest-green', name: '포레스트 그린', rarity: 'common', theme: { border:'#2ecc71', glow:1, bg:'linear-gradient(135deg, #0d3d0d, #051805)' }},
+            { id: 'sunset-orange', name: '선셋 오렌지', rarity: 'common', theme: { border:'#ff6b35', glow:1, bg:'linear-gradient(135deg, #2d1810, #0a0502)' }},
+            { id: 'ocean-blue', name: '오션 블루', rarity: 'common', theme: { border:'#3498db', glow:1, bg:'linear-gradient(135deg, #102838, #050a10)' }},
+            
+            // Rare (레어)
+            { id: 'circuit', name: '회로 패턴', rarity: 'rare', theme: { border:'#00ff88', glow:1.3, bg:'linear-gradient(135deg, #002018, #001008)' }},
+            { id: 'crimson-steel', name: '크림슨 스틸', rarity: 'rare', theme: { border:'#dc143c', glow:1.3, bg:'linear-gradient(135deg, #2d0a0a, #0d0202)' }},
+            { id: 'toxic-waste', name: '톡시 웨이스트', rarity: 'rare', theme: { border:'#39ff14', glow:1.4, bg:'radial-gradient(circle at 30% 40%, #1a3a0a, #050a02)' }},
+            { id: 'midnight-purple', name: '미드나잇 퍼플', rarity: 'rare', theme: { border:'#9b59b6', glow:1.3, bg:'linear-gradient(135deg, #1a0a2d, #05020a)' }},
+            
+            // Epic (에픽)
+            { id: 'aurora', name: '오로라', rarity: 'epic', theme: { border:'#88ccff', glow:1.6, bg:'linear-gradient(135deg, #001022, #000012)' }},
+            { id: 'inferno', name: '인페르노', rarity: 'epic', theme: { border:'#ff4500', glow:1.7, bg:'radial-gradient(circle at 50% 50%, #3d0a00, #0a0000 70%)' }},
+            { id: 'cyber-matrix', name: '사이버 매트릭스', rarity: 'epic', theme: { border:'#00ff00', glow:1.6, bg:'linear-gradient(45deg, #001a00 0%, #000a00 25%, #001400 50%, #000a00 75%, #001a00 100%)' }},
+            
+            // Legendary (레전더리)
+            { id: 'void', name: '보이드', rarity: 'legendary', theme: { border:'#ffffff', glow:2.0, bg:'radial-gradient(circle at 20% 30%, #111, #000 60%)' }},
+            { id: 'galactic-core', name: '갤럭틱 코어', rarity: 'legendary', theme: { border:'#ffd700', glow:2.2, bg:'radial-gradient(ellipse at center, #1a0033 0%, #4a0080 30%, #0a0015 70%, #000 100%)' }},
+            { id: 'divine-light', name: '디바인 라이트', rarity: 'legendary', theme: { border:'#ffffcc', glow:2.5, bg:'radial-gradient(circle at 50% 30%, #fff9e6, #ffe6b3 20%, #ffcc80 40%, #1a1a0d 80%)' }}
+        ],
+        weights: { common: 0.65, rare: 0.25, epic: 0.09, legendary: 0.01 },
+        owned: [],
+        equipped: null
+    };
+
+    function loadSkins() {
+        try {
+            const data = JSON.parse(localStorage.getItem('skillPongSkins') || '{}');
+            if (Array.isArray(data.owned)) skins.owned = data.owned; else skins.owned = [];
+            skins.equipped = data.equipped || null;
+        } catch { skins.owned = []; skins.equipped = null; }
+        renderSkins();
+        applyEquippedSkin();
+    }
+
+    function saveSkins() {
+        localStorage.setItem('skillPongSkins', JSON.stringify({ owned: skins.owned, equipped: skins.equipped }));
+    }
+    
+    // 재화 및 진행도 저장/로드
+    function saveCurrency() {
+        localStorage.setItem('skillPongProgress', JSON.stringify({
+            coins: currency.coins,
+            totalScore: rankSystem.totalScore,
+            roundsPlayed: rankSystem.roundsPlayed,
+            unlockedChars: characterUnlock.unlocked
+        }));
+    }
+    
+    function loadCurrency() {
+        try {
+            const data = JSON.parse(localStorage.getItem('skillPongProgress') || '{}');
+            currency.coins = data.coins || 0;
+            rankSystem.totalScore = data.totalScore || 0;
+            rankSystem.roundsPlayed = data.roundsPlayed || 0;
+            if (Array.isArray(data.unlockedChars)) {
+                characterUnlock.unlocked = data.unlockedChars;
+            }
+        } catch {
+            currency.coins = 0;
+            rankSystem.totalScore = 0;
+            rankSystem.roundsPlayed = 0;
+        }
+    }
+    
+    // 캐릭터 해금 체크
+    function checkCharacterUnlocks() {
+        let unlocked = false;
+        for (const [charId, required] of Object.entries(characterUnlock.requirements)) {
+            if (!characterUnlock.unlocked.includes(charId) && rankSystem.totalScore >= required) {
+                characterUnlock.unlocked.push(charId);
+                unlocked = true;
+                alert(`🎉 새 캐릭터 해금: ${characters[charId].name}!`);
+            }
+        }
+        if (unlocked) {
+            saveCurrency();
+            updateCharacterCards();
+        }
+    }
+    
+    // 캐릭터 카드 UI 업데이트 (잠금/해금 표시)
+    function updateCharacterCards() {
+        charCards.forEach(card => {
+            const charId = card.dataset.char;
+            const isUnlocked = characterUnlock.unlocked.includes(charId);
+            
+            if (!isUnlocked) {
+                card.style.opacity = '0.5';
+                card.style.filter = 'grayscale(0.8)';
+                const required = characterUnlock.requirements[charId];
+                const lockInfo = card.querySelector('.lock-info');
+                if (!lockInfo) {
+                    const info = document.createElement('div');
+                    info.className = 'lock-info';
+                    info.style.cssText = 'position:absolute; top:5px; right:5px; background:rgba(0,0,0,0.8); padding:3px 6px; border-radius:4px; font-size:10px;';
+                    info.textContent = `🔒 ${required}점`;
+                    card.appendChild(info);
+                }
+            } else {
+                card.style.opacity = '1';
+                card.style.filter = 'none';
+                const lockInfo = card.querySelector('.lock-info');
+                if (lockInfo) lockInfo.remove();
+            }
+        });
+    }
+
+    function renderSkins() {
+        if (!skinsInventoryEl) return;
+        if (!skins.owned.length) {
+            skinsInventoryEl.innerHTML = '<em>보유 스킨이 없습니다. 가챠로 스킨을 뽑아보세요.</em>';
+            return;
+        }
+        const rarityColors = {
+            common: '#9e9e9e',
+            rare: '#4dabf7',
+            epic: '#9775fa',
+            legendary: '#ffd43b'
+        };
+        const rarityIcons = {
+            common: '⚪',
+            rare: '🔵',
+            epic: '🟣',
+            legendary: '🟡'
+        };
+        skinsInventoryEl.innerHTML = skins.owned.map(id => {
+            const s = skins.pool.find(p => p.id === id);
+            const mark = skins.equipped === id ? ' ✓' : '';
+            const rarityColor = s ? rarityColors[s.rarity] : '#fff';
+            const rarityIcon = s ? rarityIcons[s.rarity] : '';
+            const rarityText = s ? s.rarity.toUpperCase() : '';
+            return `<div data-skin="${id}" style="cursor:pointer; padding:4px 6px; border-bottom:1px solid #333; border-left:3px solid ${rarityColor}; background: ${skins.equipped === id ? 'rgba(255,255,255,0.1)' : 'transparent'};">
+                <span style="color:${rarityColor};">${rarityIcon}</span> <strong>${s ? s.name : id}</strong> <span style="color:${rarityColor}; font-size:9px;">[${rarityText}]</span>${mark}
+            </div>`;
+        }).join('');
+        skinsInventoryEl.querySelectorAll('[data-skin]').forEach(el => {
+            el.onclick = () => {
+                const id = el.getAttribute('data-skin');
+                skins.equipped = id;
+                saveSkins();
+                renderSkins();
+                applyEquippedSkin();
+            };
+        });
+    }
+
+    function rollRarity() {
+        const r = Math.random();
+        let acc = 0;
+        for (const [rar, w] of Object.entries(skins.weights)) {
+            acc += w; if (r < acc) return rar;
+        }
+        return 'common';
+    }
+
+    function gachaOnce() {
+        const cost = 100;
+        if (currency.coins < cost) {
+            alert('코인이 부족합니다! (필요: 100)');
+            return;
+        }
+        currency.coins -= cost;
+        saveCurrency();
+        updateCoinDisplay();
+        
+        const rarity = rollRarity();
+        const candidates = skins.pool.filter(s => s.rarity === rarity);
+        const picked = candidates[Math.floor(Math.random() * candidates.length)];
+        
+        // 중복 허용: 단, 인벤토리에 기록은 계속 보관(중복 표시)
+        skins.owned.push(picked.id);
+        saveSkins();
+        
+        // 가챠 애니메이션 모달 표시
+        showGachaAnimation(picked, rarity);
+    }
+    
+    function showGachaAnimation(skin, rarity) {
+        // 모달 생성
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            animation: fadeIn 0.3s;
+        `;
+        
+        const rarityColors = {
+            common: '#9e9e9e',
+            rare: '#4dabf7',
+            epic: '#9775fa',
+            legendary: '#ffd43b'
+        };
+        
+        const card = document.createElement('div');
+        card.style.cssText = `
+            background: linear-gradient(135deg, #1a1a2e, #0f0f1e);
+            border: 5px solid ${rarityColors[rarity]};
+            border-radius: 20px;
+            padding: 50px;
+            text-align: center;
+            animation: gachaReveal 1.5s ease-out;
+            box-shadow: 0 0 100px ${rarityColors[rarity]};
+            max-width: 500px;
+        `;
+        
+        card.innerHTML = `
+            <h2 style="font-size: 48px; margin-bottom: 30px; color: ${rarityColors[rarity]}; text-shadow: 0 0 30px ${rarityColors[rarity]}; animation: pulse 2s ease-in-out infinite;">
+                ✨ 스킨 획득! ✨
+            </h2>
+            <div style="font-size: 24px; font-weight: 600; color: ${rarityColors[rarity]}; margin: 15px 0;">
+                ${rarity.toUpperCase()}
+            </div>
+            <div style="font-size: 36px; font-weight: bold; margin: 30px 0; color: #fff;">
+                ${skin.name}
+            </div>
+            <p style="margin: 25px 0; font-size: 16px; color: #ccc;">
+                스킨이 인벤토리에 추가되었습니다!
+            </p>
+            <button onclick="this.parentElement.parentElement.remove(); renderSkins();" style="
+                padding: 15px 40px;
+                font-size: 18px;
+                background: linear-gradient(135deg, #00ffff, #00aaff);
+                color: #000;
+                border: 3px solid #00ffff;
+                cursor: pointer;
+                border-radius: 8px;
+                font-weight: 600;
+                margin-top: 20px;
+            ">확인</button>
+        `;
+        
+        modal.appendChild(card);
+        document.body.appendChild(modal);
+        
+        // 3초 후 자동 닫기 (선택사항)
+        setTimeout(() => {
+            if (modal.parentElement) {
+                modal.style.animation = 'fadeOut 0.3s';
+                setTimeout(() => {
+                    modal.remove();
+                    renderSkins();
+                }, 300);
+            }
+        }, 5000);
+    }
+
+    function applyEquippedSkin() {
+        const id = skins.equipped;
+        const skin = skins.pool.find(s => s.id === id);
+        const container = document.getElementById('gameCanvas');
+        if (!skin || !container) { document.body.style.background = 'linear-gradient(135deg, #1a0033 0%, #0a001a 50%, #000000 100%)'; return; }
+        document.body.style.background = skin.theme.bg || document.body.style.background;
+        container.style.borderColor = skin.theme.border || '#00ffff';
+        // 글로우 강도는 draw 단계에서 곱으로 사용하기 위해 저장해둠
+        window.__skinGlowScale = skin.theme.glow || 1;
+    }
+
+    if (gachaButton) {
+        gachaButton.addEventListener('click', () => {
+            gachaOnce();
+        });
+    }
+
+    // 랭크 시스템 (누적 점수 기반)
+    const rankSystem = {
+        totalScore: 0,
+        roundsPlayed: 0,
+        rankNames: ['브론즈 V', '브론즈 IV', '브론즈 III', '브론즈 II', '브론즈 I',
+                    '실버 V', '실버 IV', '실버 III', '실버 II', '실버 I',
+                    '골드 V', '골드 IV', '골드 III', '골드 II', '골드 I',
+                    '플래티넘 V', '플래티넘 IV', '플래티넘 III', '플래티넘 II', '플래티넘 I',
+                    '다이아몬드 V', '다이아몬드 IV', '다이아몬드 III', '다이아몬드 II', '다이아몬드 I',
+                    '마스터', '그랜드마스터', '챌린저'],
+        tierThresholds: [0, 50, 120, 200, 300, 420, 560, 720, 900, 1100, 1320, 1560, 1820, 2100, 2400, 2720, 3060, 3420, 3800, 4200, 4620, 5060, 5520, 6000, 6500, 7020, 7560, 8200]
+    };
+    
+    // 재화 시스템
+    const currency = {
+        coins: 0
+    };
+    
+    // 캐릭터 해금 시스템
+    const characterUnlock = {
+        unlocked: ['speedster'], // 기본 캐릭터
+        requirements: {
+            speedster: 0,
+            guardian: 5,
+            phantom: 15,
+            sniper: 30,
+            berserker: 50,
+            timekeeper: 80,
+            frost: 120,
+            giant: 180,
+            mystic: 250,
+            blade: 350,
+            thunder: 480,
+            shadow: 650,
+            phoenix: 900
+        }
+    };
+
+    // 점수 시스템 (콤보 제거)
+    const scoreSystem = {
+        lastScorer: null
+    };
+
+    // 게임 객체
+    const ball = {
+        x: canvas.width / 2,
+        y: canvas.height / 2,
+        radius: 10,
+        baseRadius: 10,
+        speed: 4.5,
+        baseSpeed: 4.5,
+        speedX: 3,
+        speedY: 3,
+        color: '#eee',
+        alpha: 1.0
+    };
+
+    const player = {
+        x: 10,
+        y: (canvas.height - 100) / 2,
+        width: 10,
+        height: 100,
+        baseHeight: 100,
+        score: 0,
+        speed: 8,
+        baseSpeed: 8,
+        color: '#00ffff',
+        character: null
+    };
+    // 마우스 목표 위치 기반 이동을 위한 타깃 Y
+    let playerTargetY = (canvas.height - 100) / 2;
+
+    const ai = {
+        x: canvas.width - 20,
+        y: (canvas.height - 100) / 2,
+        width: 10,
+        height: 100,
+        baseHeight: 100,
+        score: 0,
+        speed: 3, // 초기 속도를 매우 약하게 설정
+        baseSpeed: 3,
+        color: '#ff00ff',
+        character: null,
+        reactionSpeed: 0.03 // 초기 반응속도를 매우 낮게
+    };
+    
+    // 스킬 관련 변수
+    const skill = {
+        player: {
+            cooldown: 15000,
+            duration: 5000,
+            lastUsed: 0,
+            isActive: false
+        },
+        ai: {
+            cooldown: 18000, // AI는 약간 더 긴 쿨다운
+            duration: 5000,
+            lastUsed: 0,
+            isActive: false
+        }
+    };
+
+    // 일시적인 디버프/버프 상태 저장 (프로스트 등)
+    const tempState = {
+        aiPrevSpeed: null,
+        aiPrevReaction: null,
+        playerPrevSpeed: null,
+        playerPrevReaction: null
+    };
+
+    // 캐릭터 정의
+    const characters = {
+        speedster: {
+            name: '스피드스터',
+            color: '#00ffff',
+            activatePlayer: () => {
+                player.speed = player.baseSpeed * 2.5;
+                skill.player.duration = 5000;
+            },
+            deactivatePlayer: () => {
+                player.speed = player.baseSpeed;
+            },
+            activateAI: () => {
+                ai.speed = ai.baseSpeed * 2.5;
+                skill.ai.duration = 5000;
+            },
+            deactivateAI: () => {
+                ai.speed = ai.baseSpeed;
+            }
+        },
+        guardian: {
+            name: '가디언',
+            color: '#ffff00',
+            activatePlayer: () => {
+                player.height = player.baseHeight * 2;
+                skill.player.duration = 5000;
+            },
+            deactivatePlayer: () => {
+                player.height = player.baseHeight;
+            },
+            activateAI: () => {
+                ai.height = ai.baseHeight * 2;
+                skill.ai.duration = 5000;
+            },
+            deactivateAI: () => {
+                ai.height = ai.baseHeight;
+            }
+        },
+        phantom: {
+            name: '팬텀',
+            color: '#9933ff',
+            activatePlayer: () => {
+                ball.alpha = 0.08; // 거의 안보이게
+                // 공 이동에 약간의 랜덤 워블 추가로 혼란 연출
+                window.__phantomActive = true;
+                skill.player.duration = 3000;
+            },
+            deactivatePlayer: () => {
+                ball.alpha = 1.0;
+                window.__phantomActive = false;
+            },
+            activateAI: () => {
+                ball.alpha = 0.08; // 거의 안보이게 (AI도 사용 시 동일)
+                window.__phantomActive = true;
+                skill.ai.duration = 3000;
+            },
+            deactivateAI: () => {
+                ball.alpha = 1.0;
+                window.__phantomActive = false;
+            }
+        },
+        sniper: {
+            name: '스나이퍼',
+            color: '#ff6600',
+            activatePlayer: () => {
+                ball.speed = ball.baseSpeed * 2;
+                skill.player.duration = 4000;
+            },
+            deactivatePlayer: () => {
+                ball.speed = ball.baseSpeed;
+            },
+            activateAI: () => {
+                ball.speed = ball.baseSpeed * 2;
+                skill.ai.duration = 4000;
+            },
+            deactivateAI: () => {
+                ball.speed = ball.baseSpeed;
+            }
+        },
+        berserker: {
+            name: '버서커',
+            color: '#ff0000',
+            activatePlayer: () => {
+                ball.radius = ball.baseRadius * 0.6;
+                ball.speed = ball.baseSpeed * 1.5;
+                skill.player.duration = 6000;
+            },
+            deactivatePlayer: () => {
+                ball.radius = ball.baseRadius;
+                ball.speed = ball.baseSpeed;
+            },
+            activateAI: () => {
+                ball.radius = ball.baseRadius * 0.6;
+                ball.speed = ball.baseSpeed * 1.5;
+                skill.ai.duration = 6000;
+            },
+            deactivateAI: () => {
+                ball.radius = ball.baseRadius;
+                ball.speed = ball.baseSpeed;
+            }
+        },
+        timekeeper: {
+            name: '타임키퍼',
+            color: '#00ff99',
+            activatePlayer: () => {
+                ball.speed = ball.baseSpeed * 0.3;
+                skill.player.duration = 2000;
+            },
+            deactivatePlayer: () => {
+                ball.speed = ball.baseSpeed;
+            },
+            activateAI: () => {
+                ball.speed = ball.baseSpeed * 0.3;
+                skill.ai.duration = 2000;
+            },
+            deactivateAI: () => {
+                ball.speed = ball.baseSpeed;
+            }
+        },
+        frost: {
+            name: '프로스트',
+            color: '#66ccff',
+            activatePlayer: () => {
+                // 상대(AI) 둔화
+                if (tempState.aiPrevSpeed === null) tempState.aiPrevSpeed = ai.baseSpeed;
+                if (tempState.aiPrevReaction === null) tempState.aiPrevReaction = ai.reactionSpeed;
+                ai.baseSpeed *= 0.5;
+                ai.speed = ai.baseSpeed;
+                ai.reactionSpeed *= 0.5;
+                skill.player.duration = 4000;
+            },
+            deactivatePlayer: () => {
+                if (tempState.aiPrevSpeed !== null) {
+                    ai.baseSpeed = tempState.aiPrevSpeed; ai.speed = ai.baseSpeed; tempState.aiPrevSpeed = null;
+                }
+                if (tempState.aiPrevReaction !== null) {
+                    ai.reactionSpeed = tempState.aiPrevReaction; tempState.aiPrevReaction = null;
+                }
+            },
+            activateAI: () => {
+                // 플레이어 둔화 (패들 이동 속도)
+                if (tempState.playerPrevSpeed === null) tempState.playerPrevSpeed = player.baseSpeed;
+                player.baseSpeed *= 0.5;
+                player.speed = player.baseSpeed;
+                skill.ai.duration = 4000;
+            },
+            deactivateAI: () => {
+                if (tempState.playerPrevSpeed !== null) {
+                    player.baseSpeed = tempState.playerPrevSpeed; player.speed = player.baseSpeed; tempState.playerPrevSpeed = null;
+                }
+            }
+        },
+        giant: {
+            name: '자이언트',
+            color: '#ffaa00',
+            activatePlayer: () => {
+                player.width = 18;
+                skill.player.duration = 5000;
+            },
+            deactivatePlayer: () => {
+                player.width = 10;
+            },
+            activateAI: () => {
+                ai.width = 18;
+                ai.x = canvas.width - ai.width - 10; // 오른쪽 여백 유지
+                skill.ai.duration = 5000;
+            },
+            deactivateAI: () => {
+                ai.width = 10;
+                ai.x = canvas.width - ai.width - 10;
+            }
+        },
+        mystic: {
+            name: '미스틱',
+            color: '#bb86fc',
+            activatePlayer: () => {
+                // 패들 높이 1.5배 증가
+                player.height = player.baseHeight * 1.5;
+                skill.player.duration = 4000;
+            },
+            deactivatePlayer: () => {
+                player.height = player.baseHeight;
+            },
+            activateAI: () => {
+                ai.height = ai.baseHeight * 1.5;
+                skill.ai.duration = 4000;
+            },
+            deactivateAI: () => {
+                ai.height = ai.baseHeight;
+            }
+        },
+        blade: {
+            name: '블레이드',
+            color: '#cf6679',
+            activatePlayer: () => {
+                // 공의 반사 각도가 더욱 날카롭게 (속도도 일시적으로 증가)
+                ball.speed = ball.speed * 1.3;
+                skill.player.duration = 3000;
+            },
+            deactivatePlayer: () => {
+                ball.speed = ball.speed / 1.3;
+            },
+            activateAI: () => {
+                ball.speed = ball.speed * 1.3;
+                skill.ai.duration = 3000;
+            },
+            deactivateAI: () => {
+                ball.speed = ball.speed / 1.3;
+            }
+        },
+        thunder: {
+            name: '썬더',
+            color: '#ffeb3b',
+            activatePlayer: () => {
+                // 공이 지그재그로 움직임 + 약간 빨라짐
+                window.__thunderActive = true;
+                ball.speed = ball.speed * 1.2;
+                skill.player.duration = 3500;
+            },
+            deactivatePlayer: () => {
+                window.__thunderActive = false;
+                ball.speed = ball.speed / 1.2;
+            },
+            activateAI: () => {
+                window.__thunderActive = true;
+                ball.speed = ball.speed * 1.2;
+                skill.ai.duration = 3500;
+            },
+            deactivateAI: () => {
+                window.__thunderActive = false;
+                ball.speed = ball.speed / 1.2;
+            }
+        },
+        shadow: {
+            name: '섀도우',
+            color: '#424242',
+            activatePlayer: () => {
+                // 자신의 패들 투명화 + 속도 증가
+                window.__shadowPlayerActive = true;
+                player.speed = player.baseSpeed * 1.5;
+                skill.player.duration = 4000;
+            },
+            deactivatePlayer: () => {
+                window.__shadowPlayerActive = false;
+                player.speed = player.baseSpeed;
+            },
+            activateAI: () => {
+                window.__shadowAIActive = true;
+                ai.speed = ai.baseSpeed * 1.5;
+                skill.ai.duration = 4000;
+            },
+            deactivateAI: () => {
+                window.__shadowAIActive = false;
+                ai.speed = ai.baseSpeed;
+            }
+        },
+        phoenix: {
+            name: '피닉스',
+            color: '#ff5722',
+            activatePlayer: () => {
+                // 공의 궤적에 불타는 효과 (시각적 + 속도 대폭 증가)
+                window.__phoenixActive = true;
+                ball.speed = ball.speed * 1.8;
+                skill.player.duration = 2500;
+            },
+            deactivatePlayer: () => {
+                window.__phoenixActive = false;
+                ball.speed = ball.speed / 1.8;
+            },
+            activateAI: () => {
+                window.__phoenixActive = true;
+                ball.speed = ball.speed * 1.8;
+                skill.ai.duration = 2500;
+            },
+            deactivateAI: () => {
+                window.__phoenixActive = false;
+                ball.speed = ball.speed / 1.8;
+            }
+        }
+    };
+
+    // 이벤트 리스너 설정
+    function setupEventListeners() {
+        // 캐릭터 선택
+        charCards.forEach(card => {
+            card.addEventListener('click', () => {
+                const charId = card.dataset.char;
+                
+                // 잠금 체크
+                if (!characterUnlock.unlocked.includes(charId)) {
+                    const required = characterUnlock.requirements[charId];
+                    alert(`이 캐릭터는 누적 점수 ${required}점이 필요합니다!`);
+                    return;
+                }
+                
+                // 선택 표시 업데이트
+                charCards.forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                selectedChar = charId;
+                // AI는 해금된 캐릭터 중 랜덤하게 선택
+                const unlockedChars = characterUnlock.unlocked.filter(id => characters[id]);
+                aiChar = unlockedChars[Math.floor(Math.random() * unlockedChars.length)];
+                
+                player.color = characters[selectedChar].color;
+                player.character = selectedChar;
+                ai.color = characters[aiChar].color;
+                ai.character = aiChar;
+                
+                startGame();
+            });
+        });
+
+        // 재시작 버튼
+        restartButton.addEventListener('click', () => {
+            resetGame();
+            gameState = 'menu';
+            updateUI();
+        });
+        
+        // 마우스 이동으로 플레이어 패들 조종
+        canvas.addEventListener('mousemove', (e) => {
+            if (gameState !== 'playing' && gameState !== 'countdown') return;
+            let rect = canvas.getBoundingClientRect();
+            playerTargetY = e.clientY - rect.top - player.height / 2;
+        });
+
+        // 스페이스바로 스킬 사용
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && gameState === 'playing') {
+                e.preventDefault();
+                activateSkill('player');
+            }
+        });
+    }
+
+    // 스킬 활성화
+    function activateSkill(who) {
+        const now = Date.now();
+        const skillData = skill[who];
+        
+        if (now - skillData.lastUsed > skillData.cooldown && !skillData.isActive) {
+            skillData.isActive = true;
+            skillData.lastUsed = now;
+            
+            const char = who === 'player' ? selectedChar : aiChar;
+            const activateFunc = who === 'player' ? 'activatePlayer' : 'activateAI';
+            const deactivateFunc = who === 'player' ? 'deactivatePlayer' : 'deactivateAI';
+            
+            characters[char][activateFunc]();
+            
+            setTimeout(() => {
+                skillData.isActive = false;
+                characters[char][deactivateFunc]();
+            }, skillData.duration);
+        }
+    }
+
+    // AI 스킬 사용 로직
+    function aiSkillLogic() {
+        const now = Date.now();
+        // AI는 공이 자신 쪽으로 다가올 때 티어에 따라 스킬 사용 확률 증가
+        if (ball.speedX > 0 && ball.x > canvas.width / 2) {
+            if (now - skill.ai.lastUsed > skill.ai.cooldown && !skill.ai.isActive) {
+                // 티어가 높을수록 스킬 사용 확률 증가 (최소 5% ~ 최대 60%)
+                const tier = getCurrentTier();
+                const skillChance = Math.min(0.05 + tier * 0.02, 0.6);
+                if (Math.random() < skillChance) {
+                    activateSkill('ai');
+                }
+            }
+        }
+    }
+
+    // AI 난이도를 랭크에 따라 조정
+    function adjustAIDifficulty() {
+        const tier = getCurrentTier();
+        // 속도: 3 -> 7 (더 낮게 증가)
+        ai.baseSpeed = 3 + (tier * 0.16);
+        ai.speed = ai.baseSpeed;
+        
+        // 반응속도: 0.02 -> 0.08 (더 낮게 증가)
+        ai.reactionSpeed = 0.02 + (tier * 0.0025);
+    }
+    
+    // 현재 티어 계산
+    function getCurrentTier() {
+        for (let i = rankSystem.tierThresholds.length - 1; i >= 0; i--) {
+            if (rankSystem.totalScore >= rankSystem.tierThresholds[i]) {
+                return i;
+            }
+        }
+        return 0;
+    }    // 게임 시작
+    function startGame() {
+        gameState = 'playing';
+        // 현재 위치를 목표로 설정
+        playerTargetY = player.y;
+        updateUI();
+        gameLoop();
+    }
+    
+    // 카운트다운 시작
+    function startCountdown() {
+        gameState = 'countdown';
+        countdownValue = 3;
+        setTimeout(() => {
+            countdownValue = 2;
+            setTimeout(() => {
+                countdownValue = 1;
+                setTimeout(() => {
+                    resetBall();
+                    gameState = 'playing';
+                }, 600);
+            }, 600);
+        }, 600);
+    }
+    
+    // 게임 리셋 (라운드 리셋)
+    function resetGame() {
+        player.score = 0;
+        ai.score = 0;
+        player.height = 100;
+        player.width = 10;
+        player.baseHeight = 100;
+        player.speed = 8;
+        player.baseSpeed = 8;
+        ai.height = 100;
+        ai.width = 10;
+        ai.baseHeight = 100;
+        ball.alpha = 1.0;
+        ball.radius = 10;
+        ball.baseRadius = 10;
+        ball.speed = 4.5;
+        ball.baseSpeed = 4.5;
+        scoreSystem.lastScorer = null;
+        skill.player.isActive = false;
+        skill.ai.isActive = false;
+        skill.player.lastUsed = 0;
+        skill.ai.lastUsed = 0;
+        // 임시 상태 초기화
+        tempState.aiPrevSpeed = null;
+        tempState.aiPrevReaction = null;
+        tempState.playerPrevSpeed = null;
+        tempState.playerPrevReaction = null;
+        playerTargetY = player.y;
+        
+        // 특수 효과 플래그 초기화
+        window.__phantomActive = false;
+        window.__thunderActive = false;
+        window.__shadowPlayerActive = false;
+        window.__shadowAIActive = false;
+        window.__phoenixActive = false;
+        
+        // AI 난이도 재조정
+        adjustAIDifficulty();
+        resetBall();
+    }
+
+    // 점수 획득 시 팝업 표시
+    function showScorePopup(x, y, points) {
+        const popup = document.createElement('div');
+        popup.className = 'score-popup';
+        popup.style.left = x + 'px';
+        popup.style.top = y + 'px';
+        popup.textContent = `+${points}`;
+        document.getElementById('game-container').appendChild(popup);
+        
+        setTimeout(() => popup.remove(), 1000);
+    }
+
+    // UI 업데이트
+    // 코인 디스플레이 업데이트
+    function updateCoinDisplay() {
+        const coinAmountEl = document.getElementById('coin-amount');
+        if (coinAmountEl) {
+            coinAmountEl.textContent = currency.coins;
+        }
+    }
+    
+    function updateUI() {
+        updateCoinDisplay();
+        
+        if (gameState === 'menu') {
+            uiOverlay.style.display = 'flex';
+            charSelectScreen.style.display = 'block';
+            gameOverScreen.style.display = 'none';
+            updateCharacterCards();
+            // 스킨 패널 숨기기
+            const skinsPanel = document.getElementById('skins-panel');
+            if (skinsPanel) skinsPanel.style.display = 'none';
+        } else if (gameState === 'playing' || gameState === 'countdown') {
+            uiOverlay.style.display = 'none';
+            // 스킨 패널 표시
+            const skinsPanel = document.getElementById('skins-panel');
+            if (skinsPanel) skinsPanel.style.display = 'block';
+        } else if (gameState === 'gameOver') {
+            uiOverlay.style.display = 'flex';
+            charSelectScreen.style.display = 'none';
+            gameOverScreen.style.display = 'block';
+            // 스킨 패널 숨기기
+            const skinsPanel = document.getElementById('skins-panel');
+            if (skinsPanel) skinsPanel.style.display = 'none';
+            
+            const didWin = player.score > ai.score;
+            
+            // 보상 지급 (승리/패배 모두)
+            const reward = didWin ? 50 : 20;
+            currency.coins += reward;
+            
+            // 캐릭터 해금 체크
+            checkCharacterUnlocks();
+            
+            rankSystem.roundsPlayed++;
+            saveCurrency();
+            updateCoinDisplay();
+            
+            const tier = getCurrentTier();
+            const currentRank = rankSystem.rankNames[Math.min(tier, rankSystem.rankNames.length - 1)];
+            const nextTierScore = tier < rankSystem.tierThresholds.length - 1 ? rankSystem.tierThresholds[tier + 1] : '최고 티어';
+            
+            winnerMessage.textContent = didWin ? "🎉 승리! 🎉" : "😢 패배... 😢";
+            document.getElementById('final-score').textContent = `라운드 점수 - 플레이어: ${player.score} | AI: ${ai.score}`;
+            document.getElementById('rank-info').innerHTML = `
+                <strong>현재 티어: ${currentRank}</strong><br>
+                누적 점수: ${rankSystem.totalScore} / ${nextTierScore}<br>
+                코인 획득: +${reward} (보유: ${currency.coins})<br>
+                총 라운드: ${rankSystem.roundsPlayed}
+            `;
+        }
+    }
+    
+    // 공 그리기
+    function drawBall() {
+        ctx.save();
+        ctx.globalAlpha = ball.alpha;
+        
+        // 피닉스 스킬 활성화 시 불타는 효과
+        if (window.__phoenixActive) {
+            // 화염 궤적 그리기
+            for (let i = 0; i < 5; i++) {
+                ctx.globalAlpha = ball.alpha * (0.6 - i * 0.1);
+                ctx.fillStyle = i % 2 === 0 ? '#ff5722' : '#ffa726';
+                ctx.beginPath();
+                ctx.arc(
+                    ball.x - ball.speedX * i * 0.5,
+                    ball.y - ball.speedY * i * 0.5,
+                    ball.radius * (1 - i * 0.15),
+                    0, Math.PI * 2
+                );
+                ctx.fill();
+            }
+            ctx.globalAlpha = ball.alpha;
+        }
+        
+        // 볼 글로우
+        const glowScale = window.__skinGlowScale || 1;
+        ctx.shadowBlur = 15 * glowScale * (window.__phoenixActive ? 2 : 1);
+        ctx.shadowColor = window.__phoenixActive ? '#ff5722' : (characters[selectedChar] ? characters[selectedChar].color : '#eee');
+        ctx.fillStyle = window.__phoenixActive ? '#ffeb3b' : ball.color;
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // 패들 그리기
+    function drawPaddle(x, y, width, height, color) {
+        ctx.save();
+        // 스킬 활성화 시 캐릭터 색상의 글로우
+        const isPlayer = x < canvas.width / 2;
+        const who = isPlayer ? 'player' : 'ai';
+        const charKey = isPlayer ? selectedChar : aiChar;
+        const active = skill[who] && skill[who].isActive;
+        
+        // 섀도우 스킬 투명화 효과
+        if ((isPlayer && window.__shadowPlayerActive) || (!isPlayer && window.__shadowAIActive)) {
+            ctx.globalAlpha = 0.3;
+        }
+        
+        if (active && charKey && characters[charKey]) {
+            const glowScale = window.__skinGlowScale || 1;
+            ctx.shadowBlur = 20 * glowScale;
+            ctx.shadowColor = characters[charKey].color;
+        }
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, width, height);
+        ctx.restore();
+    }
+
+    // 점수판 그리기
+    function drawScores() {
+        // 라운드 점수
+        ctx.fillStyle = player.color;
+        ctx.font = 'bold 48px "Orbitron", "Noto Sans KR", sans-serif';
+        ctx.fillText(player.score, canvas.width / 4, 60);
+        
+        ctx.fillStyle = ai.color;
+        ctx.fillText(ai.score, 3 * canvas.width / 4, 60);
+        
+        // 티어 정보 표시 (중앙 상단)
+        ctx.font = '600 16px "Noto Sans KR", sans-serif';
+        ctx.fillStyle = '#ffff00';
+        ctx.textAlign = 'center';
+        const tier = getCurrentTier();
+        const currentRank = rankSystem.rankNames[Math.min(tier, rankSystem.rankNames.length - 1)];
+        ctx.fillText(currentRank, canvas.width / 2, 30);
+        ctx.font = '500 12px "Noto Sans KR", sans-serif';
+        ctx.fillText(`누적: ${rankSystem.totalScore} | 코인: ${currency.coins}`, canvas.width / 2, 50);
+        ctx.textAlign = 'left';
+        
+        // 캐릭터 이름 표시
+        ctx.font = '500 12px "Noto Sans KR", sans-serif';
+        ctx.fillStyle = player.color;
+        ctx.fillText(characters[selectedChar].name, 20, canvas.height - 60);
+        
+        ctx.fillStyle = ai.color;
+        ctx.textAlign = 'right';
+        ctx.fillText(characters[aiChar].name, canvas.width - 20, canvas.height - 60);
+        ctx.textAlign = 'left';
+    }
+
+    // 중앙선 그리기
+    function drawNet() {
+        for (let i = 0; i <= canvas.height; i += 15) {
+            drawPaddle(canvas.width / 2 - 1, i, 2, 10, '#333');
+        }
+    }
+    
+    // 스킬 UI 그리기
+    function drawSkillUI() {
+    ctx.font = '500 12px "Noto Sans KR", sans-serif';
+        const now = Date.now();
+        
+        // 플레이어 스킬 UI
+        const playerCooldownRemaining = Math.max(0, (skill.player.cooldown - (now - skill.player.lastUsed)) / 1000);
+        
+        if (skill.player.isActive) {
+            const durationRemaining = Math.max(0, (skill.player.duration - (now - skill.player.lastUsed)) / 1000);
+            ctx.fillStyle = '#0f0';
+            ctx.fillText(`스킬 활성: ${durationRemaining.toFixed(1)}초`, 20, canvas.height - 20);
+        } else if (playerCooldownRemaining > 0) {
+            ctx.fillStyle = '#f00';
+            ctx.fillText(`재사용: ${playerCooldownRemaining.toFixed(1)}초`, 20, canvas.height - 20);
+        } else {
+            ctx.fillStyle = '#0f0';
+            ctx.fillText('스킬 준비 완료 [SPACE]', 20, canvas.height - 20);
+        }
+        
+        // AI 스킬 UI
+        const aiCooldownRemaining = Math.max(0, (skill.ai.cooldown - (now - skill.ai.lastUsed)) / 1000);
+        ctx.textAlign = 'right';
+        
+        if (skill.ai.isActive) {
+            const aiDurationRemaining = Math.max(0, (skill.ai.duration - (now - skill.ai.lastUsed)) / 1000);
+            ctx.fillStyle = '#0f0';
+            ctx.fillText(`AI 스킬 활성: ${aiDurationRemaining.toFixed(1)}초`, canvas.width - 20, canvas.height - 20);
+        } else if (aiCooldownRemaining > 0) {
+            ctx.fillStyle = '#f00';
+            ctx.fillText(`AI 재사용: ${aiCooldownRemaining.toFixed(1)}초`, canvas.width - 20, canvas.height - 20);
+        } else {
+            ctx.fillStyle = '#0f0';
+            ctx.fillText('AI 스킬 준비 완료', canvas.width - 20, canvas.height - 20);
+        }
+        
+        ctx.textAlign = 'left';
+    }
+
+    // 공 위치 리셋
+    function resetBall() {
+        ball.x = canvas.width / 2;
+        ball.y = canvas.height / 2;
+        // 공 속도 축적 초기화
+        ball.speed = ball.baseSpeed;
+        // 마지막에 실점한 쪽으로 공이 날아가도록
+        ball.speedX = -ball.speedX;
+        // 축 기준 속력 재계산 (speedX의 부호 유지)
+        const dir = Math.sign(ball.speedX) || (Math.random() > 0.5 ? 1 : -1);
+        const angle = (Math.random() * 0.6 - 0.3); // -0.3 ~ 0.3 라디안
+        ball.speedX = dir * ball.speed * Math.cos(angle);
+        ball.speedY = ball.speed * Math.sin(angle);
+    }
+
+    // 충돌 감지
+    function collision(b, p) { // ball, paddle
+        return b.x + b.radius > p.x &&
+               b.x - b.radius < p.x + p.width &&
+               b.y + b.radius > p.y &&
+               b.y - b.radius < p.y + p.height;
+    }
+
+    // 게임 로직 업데이트
+    function update() {
+    // 카운트다운 중에는 업데이트 중단
+    if (gameState === 'countdown') {
+        return;
+    }
+    
+    // 공 이동 (팬텀 활성화 시 약간의 워블 추가, 썬더 활성화 시 지그재그)
+    if (window.__phantomActive) {
+        ball.x += ball.speedX + (Math.random() - 0.5) * 0.8;
+        ball.y += ball.speedY + (Math.random() - 0.5) * 0.8;
+    } else if (window.__thunderActive) {
+        // 지그재그 효과
+        ball.x += ball.speedX;
+        ball.y += ball.speedY + Math.sin(ball.x * 0.1) * 2;
+    } else {
+        ball.x += ball.speedX;
+        ball.y += ball.speedY;
+    }
+
+    // 플레이어 패들 이동: 목표 위치로 속도 제한 이동
+    const dy = playerTargetY - player.y;
+    const step = Math.max(-player.speed, Math.min(player.speed, dy));
+    player.y += step;
+    if (player.y < 0) player.y = 0;
+    if (player.y + player.height > canvas.height) player.y = canvas.height - player.height;
+
+        // AI 패들 이동 (랭크 기반 난이도)
+    // 팬텀 혼란: 공이 매우 안보일 때는 반응감소 및 노이즈 추가
+    const phantomConfused = ball.alpha <= 0.12; // 거의 안보이는 상태로 간주
+    const reactionFactor = phantomConfused ? ai.reactionSpeed * 0.5 : ai.reactionSpeed;
+    const noise = (Math.random() - 0.5) * (phantomConfused ? 20 : 8); // 픽셀 단위 오차
+    let aiDy = (ball.y + noise - (ai.y + ai.height / 2)) * reactionFactor;
+    // 속도 캡 적용
+    aiDy = Math.max(-ai.speed, Math.min(ai.speed, aiDy));
+    ai.y += aiDy;
+        if (ai.y < 0) ai.y = 0;
+        if (ai.y + ai.height > canvas.height) ai.y = canvas.height - ai.height;
+        
+        // AI 스킬 사용 로직
+        aiSkillLogic();
+
+        // 벽 충돌 (상하)
+        if (ball.y + ball.radius > canvas.height || ball.y - ball.radius < 0) {
+            ball.speedY = -ball.speedY;
+        }
+
+        // 패들 충돌
+        let currentPaddle = (ball.x < canvas.width / 2) ? player : ai;
+        if (collision(ball, currentPaddle)) {
+            // 공이 패들 어디에 맞았는지 계산 (-1: top, 0: middle, 1: bottom)
+            let collidePoint = (ball.y - (currentPaddle.y + currentPaddle.height / 2)) / (currentPaddle.height / 2);
+            
+            // 충돌 각도 계산
+            let angleRad = (Math.PI / 4) * collidePoint;
+            
+            // 공의 방향 전환 및 속도 증가
+            let direction = (ball.x < canvas.width / 2) ? 1 : -1;
+            ball.speedX = direction * ball.speed * Math.cos(angleRad);
+            ball.speedY = ball.speed * Math.sin(angleRad);
+            ball.speed = Math.min(ball.speed + 0.2, 9); // 최대 속도 제한 (느리게)
+        }
+
+        // 점수 획득
+        if (ball.x - ball.radius < 0) {
+            // AI 득점
+            ai.score += 1;
+            scoreSystem.lastScorer = 'ai';
+            showScorePopup(canvas.width * 0.75, canvas.height / 2, 1);
+            startCountdown();
+        } else if (ball.x + ball.radius > canvas.width) {
+            // 플레이어 득점
+            player.score += 1;
+            rankSystem.totalScore += 1;
+            currency.coins += 5;
+            scoreSystem.lastScorer = 'player';
+            showScorePopup(canvas.width * 0.25, canvas.height / 2, 1);
+            startCountdown();
+        }
+
+        // 라운드 종료 조건 확인
+        if (player.score >= POINTS_TO_WIN || ai.score >= POINTS_TO_WIN) {
+            gameState = 'gameOver';
+            updateUI();
+        }
+    }
+
+    // 그리기 함수
+    function render() {
+        // 캔버스 초기화
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 요소 그리기
+        drawNet();
+        drawScores();
+        drawPaddle(player.x, player.y, player.width, player.height, player.color);
+        drawPaddle(ai.x, ai.y, ai.width, ai.height, ai.color);
+        drawBall();
+        drawSkillUI();
+        
+        // 카운트다운 표시
+        if (gameState === 'countdown') {
+            ctx.save();
+            ctx.font = 'bold 80px "Orbitron", sans-serif';
+            ctx.fillStyle = '#ffff00';
+            ctx.textAlign = 'center';
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#ffff00';
+            ctx.fillText(countdownValue, canvas.width / 2, canvas.height / 2 + 30);
+            ctx.restore();
+        }
+    }
+
+    // 메인 게임 루프
+    function gameLoop() {
+        if (gameState === 'playing' || gameState === 'countdown') {
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+    }
+    
+    // 화면 전환 함수들
+    function showGachaScreen() {
+        document.getElementById('character-select-screen').style.display = 'none';
+        document.getElementById('gacha-screen').style.display = 'block';
+        document.getElementById('gacha-coin-display').textContent = currency.coins;
+    }
+    
+    function hideGachaScreen() {
+        document.getElementById('gacha-screen').style.display = 'none';
+        document.getElementById('character-select-screen').style.display = 'block';
+    }
+    
+    function showSkinScreen() {
+        document.getElementById('character-select-screen').style.display = 'none';
+        document.getElementById('skin-screen').style.display = 'block';
+        renderSkinList();
+    }
+    
+    function hideSkinScreen() {
+        document.getElementById('skin-screen').style.display = 'none';
+        document.getElementById('character-select-screen').style.display = 'block';
+    }
+    
+    // 가챠 화면에서 가챠 수행
+    function performGachaFromScreen() {
+        gachaOnce();
+        document.getElementById('gacha-coin-display').textContent = currency.coins;
+    }
+    
+    // 스킨 목록 렌더링 (장착 화면용)
+    function renderSkinList() {
+        const container = document.getElementById('skin-list-container');
+        if (!container) return;
+        
+        if (!skins.owned || skins.owned.length === 0) {
+            container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #999; font-size: 18px;">보유한 스킨이 없습니다.<br>가챠를 통해 스킨을 획득하세요!</p>';
+            return;
+        }
+        
+        const rarityColors = {
+            common: '#9e9e9e',
+            rare: '#4dabf7',
+            epic: '#9775fa',
+            legendary: '#ffd43b'
+        };
+        
+        const rarityNames = {
+            common: '커먼',
+            rare: '레어',
+            epic: '에픽',
+            legendary: '레전더리'
+        };
+        
+        // 중복 제거하고 개수 세기
+        const skinCounts = {};
+        skins.owned.forEach(id => {
+            skinCounts[id] = (skinCounts[id] || 0) + 1;
+        });
+        
+        const uniqueSkins = Object.keys(skinCounts);
+        
+        container.innerHTML = uniqueSkins.map(id => {
+            const skin = skins.pool.find(s => s.id === id);
+            if (!skin) return '';
+            
+            const isEquipped = skins.equipped === id;
+            const count = skinCounts[id];
+            const color = rarityColors[skin.rarity];
+            
+            return `
+                <div onclick="equipSkin('${id}')" style="
+                    background: ${isEquipped ? 'rgba(0,255,255,0.15)' : 'rgba(20,20,40,0.8)'};
+                    border: 3px solid ${isEquipped ? '#00ffff' : color};
+                    border-radius: 10px;
+                    padding: 20px;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                    box-shadow: ${isEquipped ? '0 0 20px rgba(0,255,255,0.4)' : 'none'};
+                " onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 5px 20px rgba(0,255,255,0.3)';" onmouseout="this.style.transform=''; this.style.boxShadow='${isEquipped ? '0 0 20px rgba(0,255,255,0.4)' : 'none'}';">
+                    <div style="font-size: 20px; font-weight: bold; margin-bottom: 10px; color: #fff;">${skin.name}</div>
+                    <div style="background: ${color}; color: ${skin.rarity === 'common' || skin.rarity === 'rare' || skin.rarity === 'legendary' ? '#000' : '#fff'}; padding: 5px 10px; border-radius: 5px; font-size: 12px; font-weight: 600; display: inline-block; margin-bottom: 10px;">
+                        ${rarityNames[skin.rarity].toUpperCase()}
+                    </div>
+                    ${count > 1 ? `<div style="color: #ffd700; font-size: 14px; margin-top: 5px;">보유: ${count}개</div>` : ''}
+                    ${isEquipped ? '<div style="color: #00ffff; font-size: 16px; font-weight: bold; margin-top: 10px;">✓ 장착중</div>' : '<div style="color: #999; font-size: 14px; margin-top: 10px;">클릭하여 장착</div>'}
+                </div>
+            `;
+        }).join('');
+    }
+    
+    // 스킨 장착
+    function equipSkin(skinId) {
+        skins.equipped = skinId;
+        saveSkins();
+        applyEquippedSkin();
+        renderSkinList();
+        // 성공 피드백
+        const feedback = document.createElement('div');
+        feedback.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,255,255,0.95);
+            color: #000;
+            padding: 20px 40px;
+            border-radius: 10px;
+            font-size: 20px;
+            font-weight: bold;
+            z-index: 10001;
+            animation: fadeIn 0.3s;
+        `;
+        const skinName = skins.pool.find(s => s.id === skinId)?.name || '스킨';
+        feedback.textContent = `✓ ${skinName} 장착 완료!`;
+        document.body.appendChild(feedback);
+        setTimeout(() => {
+            feedback.style.animation = 'fadeOut 0.3s';
+            setTimeout(() => feedback.remove(), 300);
+        }, 1500);
+    }
+
+    // 초기화
+    setupEventListeners();
+    loadCurrency();
+    loadSkins();
+    updateCoinDisplay();
+    updateUI();
+
+</script>
+</body>
+</html>
